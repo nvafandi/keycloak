@@ -11,8 +11,8 @@ services:
       KC_DB_URL_HOST: "postgres"                # service name inside Docker network
       KC_DB_URL_PORT: "5432"
       KC_DB_URL_DATABASE: "phantom"             # database name
-      KC_DB_USERNAME: "nurvan"                  # database user
-      KC_DB_PASSWORD: "kmzwa88sAA"              # database password
+      KC_DB_USERNAME: "nurvan"                  # must match POSTGRES_USER
+      KC_DB_PASSWORD: "kmzwa88sAA"              # must match POSTGRES_PASSWORD
       KEYCLOAK_ADMIN: "admin"                   # initial admin username
       KEYCLOAK_ADMIN_PASSWORD: "changeme"       # initial admin password
       KC_PROXY: "edge"                          # proxy mode
@@ -37,8 +37,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: "phantom"                    # database name
-      POSTGRES_USER: "nurvan"                   # database user
-      POSTGRES_PASSWORD: "kmzwa88sAA"           # database password
+      POSTGRES_USER: "nurvan"                   # default user
+      POSTGRES_PASSWORD: "kmzwa88sAA"           # password for nurvan
     volumes:
       - postgres_data:/var/lib/postgresql/data  # persistent storage for Postgres
     ports:
