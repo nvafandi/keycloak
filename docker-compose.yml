@@ -3,26 +3,26 @@ version: "3.9"
 services:
   keycloak:
     container_name: keycloak
-    image: "quay.io/keycloak/keycloak:24.0.4"
+    image: "quay.io/keycloak/keycloak:24.0.4"   # use a fixed version for stability
     restart: unless-stopped
-    command: ["start", "--proxy-headers"]
+    command: ["start", "--proxy-headers=xforwarded"]  # use X-Forwarded-* headers
     environment:
       KC_DB: "postgres"
-      KC_DB_URL_HOST: "postgres"
+      KC_DB_URL_HOST: "postgres"                # service name inside Docker network
       KC_DB_URL_PORT: "5432"
-      KC_DB_URL_DATABASE: "phantom"
-      KC_DB_USERNAME: "nurvan"
-      KC_DB_PASSWORD: "kmzwa88sAA"
-      KEYCLOAK_ADMIN: "admin"
-      KEYCLOAK_ADMIN_PASSWORD: "changeme"
-      KC_PROXY: "edge"
-      KC_HOSTNAME: "nurvan.my.id"
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_DB_URL_DATABASE: "phantom"             # database name
+      KC_DB_USERNAME: "nurvan"                  # database user
+      KC_DB_PASSWORD: "kmzwa88sAA"              # database password
+      KEYCLOAK_ADMIN: "admin"                   # initial admin username
+      KEYCLOAK_ADMIN_PASSWORD: "changeme"       # initial admin password
+      KC_PROXY: "edge"                          # proxy mode
+      KC_HOSTNAME: "nurvan.my.id"               # public hostname
+      KC_HOSTNAME_STRICT: "false"               # disable strict hostname checks
+      KC_HOSTNAME_STRICT_HTTPS: "false"         # disable strict HTTPS checks
     ports:
-      - "8080:8080"
+      - "8080:8080"                             # expose Keycloak on host port 8080
     depends_on:
-      - postgres
+      - postgres                                # wait for Postgres before starting
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
       interval: 10s
@@ -33,16 +33,16 @@ services:
 
   postgres:
     container_name: postgres
-    image: "postgres:15"
+    image: "postgres:15"                        # stable Postgres version
     restart: unless-stopped
     environment:
-      POSTGRES_DB: "phantom"
-      POSTGRES_USER: "nurvan"
-      POSTGRES_PASSWORD: "kmzwa88sAA"
+      POSTGRES_DB: "phantom"                    # database name
+      POSTGRES_USER: "nurvan"                   # database user
+      POSTGRES_PASSWORD: "kmzwa88sAA"           # database password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data  # persistent storage for Postgres
     ports:
-      - "5432:5432"
+      - "5432:5432"                             # expose Postgres on host port 5432
     networks:
       - keycloak-net
 
