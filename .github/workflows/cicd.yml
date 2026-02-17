@@ -11,10 +11,9 @@ on:
         default: 'main'
       skip_build:
         required: false
-        default: 'true'   # default true karena tidak build
+        default: 'true'
 
 jobs:
-  # Job build hanya jalan kalau skip_build != 'true'
   build-and-push:
     if: ${{ github.event.inputs.skip_build != 'true' }}
     runs-on: ubuntu-latest
@@ -29,7 +28,7 @@ jobs:
     needs: [build-and-push]
     env:
       DEPLOY_BRANCH: ${{ github.event.inputs.deploy_branch || 'main' }}
-      KEYCLOAK_IMAGE: ${{ secrets.KEYCLOAK_IMAGE }}   # isi dari GitHub Secrets
+      KEYCLOAK_IMAGE: ${{ secrets.KEYCLOAK_IMAGE }}
       SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_PORT: ${{ secrets.SSH_PORT }}
@@ -41,15 +40,20 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "${{ secrets.VPS_KEY }}" > ~/.ssh/vps_key
+          # Pastikan baris baru tetap utuh saat disimpan di secret
+          printf "%s\n" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/vps_key
           chmod 600 ~/.ssh/vps_key
           ssh-keyscan -p "${SSH_PORT:-22}" -H $SSH_HOST >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
+
+          # Validasi key terbaca oleh OpenSSH
+          ssh-keygen -lf ~/.ssh/vps_key
 
       - name: Deploy to VPS
         run: |
           ssh -i ~/.ssh/vps_key $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "
             cd /home/nurvan/keycloak &&
+            git fetch &&
             git pull origin main &&
             docker-compose down &&
             docker-compose pull &&
