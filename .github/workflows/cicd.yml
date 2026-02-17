@@ -38,9 +38,9 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/github_actions_vps_key
+          chmod 600 ~/.ssh/github_actions_vps_key
+          ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy to VPS
@@ -50,7 +50,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
           IMAGE: ${{ env.KEYCLOAK_IMAGE }}
         run: |
-          ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" -p "${SSH_PORT:-22}" <<'EOF'
+          ssh -i ~/.ssh/github_actions_vps_key $SSH_USERNAME@$SSH_HOST -p $SSH_PORT " <<'EOF'
             set -euo pipefail
             cd /home/nurvan/keycloak || exit 2
 
