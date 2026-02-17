@@ -37,48 +37,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Quick debug - check presence of required secrets (no secret values shown)
+      - name: Quick debug - presence of required values
         run: |
-          echo "Checking presence of SSH_HOST, SSH_USERNAME, KEYCLOAK_IMAGE..."
-          if [ -z "${SSH_HOST:-}" ]; then echo "ERROR: SSH_HOST is empty"; fi
-          if [ -z "${SSH_USERNAME:-}" ]; then echo "ERROR: SSH_USERNAME is empty"; fi
-          if [ -z "${KEYCLOAK_IMAGE:-}" ]; then echo "WARNING: KEYCLOAK_IMAGE empty — will fallback to official image"; fi
+          echo "SSH_HOST=${SSH_HOST:-<empty>}"
+          echo "SSH_USERNAME=${SSH_USERNAME:-<empty>}"
+          if [ -z "${SSH_HOST:-}" ]; then echo "::error::SSH_HOST is empty"; fi
 
       - name: Start ssh-agent and add private key (preferred)
-        uses: webfactory/ssh-agent@v0.8.1
+        uses: webfactory/ssh-agent@v0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Add remote host to known_hosts (only if SSH_HOST set)
+      - name: Add remote host to known_hosts (if SSH_HOST set)
         if: ${{ env.SSH_HOST != '' }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          # If SSH_PORT is set, pass -p, otherwise skip port param
           if [ -n "${SSH_PORT:-}" ]; then
             ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
           else
             ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
           fi
           chmod 644 ~/.ssh/known_hosts
-          echo "Known host added for $SSH_HOST"
-          
+
       - name: Deploy to VPS
         env:
           IMAGE: ${{ env.KEYCLOAK_IMAGE }}
         run: |
-          # NOTE: heredoc WITHOUT quotes so variables like $DEPLOY_BRANCH and $IMAGE
-          # are expanded on the runner and replaced with their values before sending to remote.
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "${SSH_PORT:-22}" "${SSH_USERNAME}@${SSH_HOST}" <<EOF
             set -euo pipefail
             cd /home/nurvan/keycloak || exit 2
-          
-            # fallback ke image resmi Keycloak jika IMAGE kosong
+
             IMAGE="${IMAGE:-quay.io/keycloak/keycloak:latest}"
-          
-            # tulis .env agar docker compose menggunakan image tersebut
             printf 'KEYCLOAK_IMAGE=%s\n' "$IMAGE" > .env
-          
+
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
