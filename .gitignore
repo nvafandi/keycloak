@@ -1,0 +1,22 @@
+# IntelliJ
+.idea
+*.ipr
+*.iml
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
+
+# Visual Studio Code
+.vscode
+.factorypath
+
+# patch
+*.orig
+*.rej
+
+# Local environment
+.env
