@@ -16,7 +16,7 @@
 - BACKUP_DIR=/backups
 
 # SSH
-- SSH_USERNAME: nnurvan
+- SSH_USERNAME: nurvan
 - SSH_PRIVATE_KEY:
 - SSH_PORT: 22
 - SSH_HOST: nurvan.my.id
@@ -24,3 +24,5 @@
 # DOCKER
 - DOCKER_USERNAME: nurvanafandi
 - DOCKER_PASSWORD:
+- DOCKER_REPOSITORY: nurvanafandi/keycloak
+- DOCKER_REGISTRY: docker.io
