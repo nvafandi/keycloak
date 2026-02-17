@@ -2,22 +2,24 @@ version: "3.9"
 
 services:
   keycloak:
-    image: "quay.io/keycloak/keycloak:latest" # ganti tag ke versi tetap untuk production
+    image: "quay.io/keycloak/keycloak:24.0.4"   # gunakan versi tetap, bukan latest
     restart: unless-stopped
     command: ["start", "--proxy=edge"]
     environment:
       KC_DB: "postgres"
-      KC_DB_URL_HOST: "${DB_HOST:-nurvan.my.id}"
-      KC_DB_URL_PORT: "${DB_PORT:-5432}"
-      KC_DB_URL_DATABASE: "${DB_NAME:-phantom}"
-      KC_DB_USERNAME: "${DB_USER:-nurvan}"
-      KC_DB_PASSWORD: "${DB_PASSWORD:-kmzwa88sAA}"
-      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
-      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-changeme}"
+      KC_DB_URL_HOST: "postgres"                # gunakan nama service di compose, bukan domain
+      KC_DB_URL_PORT: "5432"
+      KC_DB_URL_DATABASE: "phantom"             # nama database Postgres
+      KC_DB_USERNAME: "nurvan"                  # user Postgres
+      KC_DB_PASSWORD: "kmzwa88sAA"              # password Postgres
+      KEYCLOAK_ADMIN: "admin"
+      KEYCLOAK_ADMIN_PASSWORD: "changeme"
       KC_PROXY: "edge"
-      KC_HOSTNAME: "${KC_HOSTNAME:-}"   # optional override hostname (mis. kc.example.com)
+      KC_HOSTNAME: "nurvan.my.id"               # hostname publik untuk Keycloak
     ports:
-      - "${KEYCLOAK_HTTP_PORT:-8080}:8080"
+      - "8080:8080"
+    depends_on:
+      - postgres
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
       interval: 10s
@@ -26,6 +28,21 @@ services:
     networks:
       - keycloak-net
 
+  postgres:
+    image: "postgres:15"
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "phantom"
+      POSTGRES_USER: "nurvan"
+      POSTGRES_PASSWORD: "kmzwa88sAA"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - keycloak-net
+
 networks:
   keycloak-net:
     driver: bridge
+
+volumes:
+  postgres_data:
