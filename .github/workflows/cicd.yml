@@ -48,20 +48,10 @@ jobs:
 
       - name: Deploy to VPS
         run: |
-          ssh -i ~/.ssh/vps_key "$SSH_USER@$SSH_HOST" -p "${SSH_PORT:-22}" <<'EOF'
-            set -euo pipefail
-            cd /home/nurvan/keycloak || exit 2
-
-            git fetch --all --prune
-            git reset --hard origin/"${DEPLOY_BRANCH:-main}"
-
-            # fallback ke image resmi Keycloak jika secret tidak diset
-            IMAGE="${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:latest}"
-
-            # tulis .env agar docker-compose menggunakan image tersebut
-            echo "KEYCLOAK_IMAGE=$IMAGE" > .env
-
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker image prune -f
-          EOF
+          ssh -i ~/.ssh/vps_key $SSH_USERNAME@$SSH_HOST -p $SSH_PORT "
+            cd /home/nurvan/keycloak &&
+            git pull origin main &&
+            docker-compose down &&
+            docker-compose pull &&
+            docker-compose up -d
+          "
