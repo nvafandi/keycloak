@@ -30,7 +30,7 @@ jobs:
     env:
       DEPLOY_BRANCH: ${{ github.event.inputs.deploy_branch || 'main' }}
       KEYCLOAK_IMAGE: ${{ secrets.KEYCLOAK_IMAGE }}   # isi dari GitHub Secrets
-      SSH_USER: ${{ secrets.SSH_USERNAME }}
+      SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_PORT: ${{ secrets.SSH_PORT }}
     steps:
