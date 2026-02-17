@@ -7,65 +7,34 @@ on:
   workflow_dispatch:
     inputs:
       deploy_branch:
-        description: 'Branch yang akan di-deploy'
         required: false
         default: 'main'
-      run_backup:
-        description: 'Jalankan backup di VPS sebelum deploy? (true/false)'
-        required: false
-        default: 'false'
       skip_build:
-        description: 'Skip tahap build & push image (true/false)'
         required: false
-        default: 'false'
+        default: 'true'   # default true karena tidak build
 
 jobs:
+  # hapus/disable job build jika tidak diperlukan
   build-and-push:
-    name: Build and push image
-    runs-on: ubuntu-latest
-    # job ini akan dilewati bila user memilih skip_build == 'true'
     if: ${{ github.event.inputs.skip_build != 'true' }}
-    env:
-      IMAGE_NAME: "nurvanafandi/keycloak"
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-        # Referensi: https://github.com/docker/login-action
-
-      - name: Build and push Docker image (sha + latest)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:latest
+      # (langkah build/push hanya akan jalan kalau skip_build != 'true')
 
   deploy:
     name: Deploy to VPS via SSH
     runs-on: ubuntu-latest
-    # jangan paksa 'needs: build-and-push' agar deploy tetap jalan ketika skip_build == 'true'
+    needs: [build-and-push]
     env:
       DEPLOY_BRANCH: ${{ github.event.inputs.deploy_branch || 'main' }}
-      SSH_USER: ${{ secrets.SSH_USERNAME }}
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_PORT: ${{ secrets.SSH_PORT }}
+      KEYCLOAK_IMAGE: ${{ secrets.KEYCLOAK_IMAGE }}  # set ini di repo secrets
     steps:
-      - name: Checkout code (for docker-compose.yml)
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup SSH key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -75,18 +44,26 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy to VPS
+        env:
+          SSH_USER: ${{ secrets.SSH_USERNAME }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          IMAGE: ${{ env.KEYCLOAK_IMAGE }}
         run: |
-          ssh -i ~/.ssh/id_rsa -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+          ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" -p "${SSH_PORT:-22}" <<'EOF'
             set -euo pipefail
             cd /home/nurvan/keycloak || exit 2
 
             git fetch --all --prune
-            git reset --hard origin/"${DEPLOY_BRANCH}"
+            git reset --hard origin/"${DEPLOY_BRANCH:-main}"
 
-            # Tarik image terbaru (compose harus merujuk pada tag 'latest' atau image tanpa tag)
+            # fallback ke image resmi Keycloak jika secret tidak diset
+            IMAGE="${IMAGE:-quay.io/keycloak/keycloak:latest}"
+
+            # tulis .env agar docker-compose menggunakan image tersebut
+            echo "KEYCLOAK_IMAGE=$IMAGE" > .env
+
             docker compose pull
             docker compose up -d --remove-orphans
-
-            # Cleanup local images di VPS
             docker image prune -f
           EOF
