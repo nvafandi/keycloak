@@ -17,16 +17,13 @@ on:
       skip_build:
         description: 'Skip tahap build & push image (true/false)'
         required: false
-        default: 'false'
+        default: 'true'   # default diubah ke true karena kita pakai image resmi
 
 jobs:
   build-and-push:
     name: Build and push image
     runs-on: ubuntu-latest
-    # job ini akan dilewati bila user memilih skip_build == 'true'
     if: ${{ github.event.inputs.skip_build != 'true' }}
-    env:
-      IMAGE_NAME: "nurvanafandi/keycloak"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,27 +37,23 @@ jobs:
           registry: docker.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-        # Referensi: https://github.com/docker/login-action
 
-      - name: Build and push Docker image (sha + latest)
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:latest
+          tags: ${{ secrets.DOCKER_REGISTRY }}/my-keycloak:${{ github.sha }}
 
   deploy:
     name: Deploy to VPS via SSH
     runs-on: ubuntu-latest
-    # jangan paksa 'needs: build-and-push' agar deploy tetap jalan ketika skip_build == 'true'
+    needs: build-and-push
     env:
       DEPLOY_BRANCH: ${{ github.event.inputs.deploy_branch || 'main' }}
-      SSH_USER: ${{ secrets.SSH_USERNAME }}
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_PORT: ${{ secrets.SSH_PORT }}
+      # Anda bisa set secrets.KEYCLOAK_IMAGE pada repo (contoh: quay.io/keycloak/keycloak:latest)
+      KEYCLOAK_IMAGE: ${{ secrets.KEYCLOAK_IMAGE }}
     steps:
       - name: Checkout code (for docker-compose.yml)
         uses: actions/checkout@v4
@@ -75,18 +68,29 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy to VPS
+        env:
+          SSH_USER: ${{ secrets.SSH_USERNAME }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_BRANCH: ${{ env.DEPLOY_BRANCH }}
+          IMAGE: ${{ env.KEYCLOAK_IMAGE }}
         run: |
-          ssh -i ~/.ssh/id_rsa -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+          ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" -p "$SSH_PORT" <<'EOF'
             set -euo pipefail
             cd /home/nurvan/keycloak || exit 2
 
             git fetch --all --prune
-            git reset --hard origin/"${DEPLOY_BRANCH}"
+            git reset --hard origin/"$DEPLOY_BRANCH"
 
-            # Tarik image terbaru (compose harus merujuk pada tag 'latest' atau image tanpa tag)
+            # fallback image jika secret tidak diset
+            IMAGE="${IMAGE:-quay.io/keycloak/keycloak:latest}"
+
+            # tulis .env (dipakai docker-compose untuk menggantikan image)
+            echo "KEYCLOAK_IMAGE=$IMAGE" > .env
+
+            # pastikan compose menarik image terbaru
             docker compose pull
             docker compose up -d --remove-orphans
 
-            # Cleanup local images di VPS
             docker image prune -f
           EOF
