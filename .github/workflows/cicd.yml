@@ -14,14 +14,14 @@ on:
         default: 'true'   # default true karena tidak build
 
 jobs:
-  # hapus/disable job build jika tidak diperlukan
+  # Job build hanya jalan kalau skip_build != 'true'
   build-and-push:
     if: ${{ github.event.inputs.skip_build != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      # (langkah build/push hanya akan jalan kalau skip_build != 'true')
+      # Tambahkan langkah build/push image di sini jika diperlukan
 
   deploy:
     name: Deploy to VPS via SSH
@@ -29,11 +29,10 @@ jobs:
     needs: [build-and-push]
     env:
       DEPLOY_BRANCH: ${{ github.event.inputs.deploy_branch || 'main' }}
-      KEYCLOAK_IMAGE: ${{ secrets.KEYCLOAK_IMAGE }}  # set ini di repo secrets
+      KEYCLOAK_IMAGE: ${{ secrets.KEYCLOAK_IMAGE }}   # isi dari GitHub Secrets
       SSH_USER: ${{ secrets.SSH_USERNAME }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_PORT: ${{ secrets.SSH_PORT }}
-      IMAGE: ${{ env.KEYCLOAK_IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,9 +41,9 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/vps_key
+          echo "${{ secrets.VPS_KEY }}" > ~/.ssh/vps_key
           chmod 600 ~/.ssh/vps_key
-          ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${SSH_PORT:-22}" -H $SSH_HOST >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy to VPS
@@ -57,7 +56,7 @@ jobs:
             git reset --hard origin/"${DEPLOY_BRANCH:-main}"
 
             # fallback ke image resmi Keycloak jika secret tidak diset
-            IMAGE="${IMAGE:-quay.io/keycloak/keycloak:latest}"
+            IMAGE="${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:latest}"
 
             # tulis .env agar docker-compose menggunakan image tersebut
             echo "KEYCLOAK_IMAGE=$IMAGE" > .env
